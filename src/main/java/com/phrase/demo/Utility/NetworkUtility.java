@@ -1,46 +1,43 @@
-package com.phrase.demo.Utility;
+package com.phrase.demo.utility;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.phrase.demo.DTO.Configuration;
-import com.phrase.demo.DTO.LoginInfo;
-import com.phrase.demo.DTO.Project;
-import com.phrase.demo.Service.PhraseServiceImpl;
+import com.phrase.demo.dto.request.TMSConfiguration;
+import com.phrase.demo.dto.response.LoginInfo;
+import com.phrase.demo.errorhandling.ProjectRuntimeException;
+import com.phrase.demo.service.TMSConfigurationsServiceImpl;
+import lombok.AllArgsConstructor;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.springframework.beans.factory.annotation.Autowired;
+import okhttp3.ResponseBody;
 import org.springframework.stereotype.Component;
-
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
 
 @Component
+@AllArgsConstructor
 public class NetworkUtility {
-    public static final MediaType JSON
-            = MediaType.get("application/json; charset=utf-8");
+    public static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
-    public static final String BASE_URL= "https://cloud.memsource.com/web";
+    public static final String GET_AUTH_TOKEN= "https://cloud.memsource.com/web/api2/v1/auth/login";
+    public static final String GET_PROJECTS_LIST= "https://cloud.memsource.com/web/api2/v1/projects";
 
-    public LoginInfo authRequest(Configuration configuration) throws IOException {
+    private TMSConfigurationsServiceImpl configurationsService;
+
+    public String getToken(TMSConfiguration configuration) throws IOException {
         OkHttpClient client = new OkHttpClient();
-        String authUrl = BASE_URL + "/api2/v1/auth/login";
 
         JsonObject json = new JsonObject();
         json.addProperty("userName",configuration.getUsername());
         json.addProperty("password",configuration.getPassword());
         json.addProperty("code","NA");
 
-        RequestBody body = RequestBody.create(json.toString(), JSON);
+        RequestBody body = RequestBody.create(configuration.toString(), JSON);
         Request request = new Request.Builder()
-                .url(authUrl)
+                .url(GET_AUTH_TOKEN)
                 .post(body)
                 .build();
 
@@ -48,59 +45,31 @@ public class NetworkUtility {
             if (response.isSuccessful()){
                 String loginResponse = response.body().string() ;
                 ObjectMapper mapper = new ObjectMapper();
-                return mapper.readValue(loginResponse, new TypeReference<>() {});
+                LoginInfo loginInfo =  mapper.readValue(loginResponse, new TypeReference<>() {});
+                return loginInfo.getToken();
             }
-            // TODO throw error in case of response other than 200
-            return new LoginInfo();
+            throw new ProjectRuntimeException(String.valueOf(response.code()),response.message());
+        }catch (ProjectRuntimeException e){
+            throw new ProjectRuntimeException(e.getCode(),e.getMessage());
         }
     }
 
-    public List<Project> getProjectsList(String token) throws IOException{
+    public ResponseBody getProjectFromTMSList() throws IOException {
         OkHttpClient client = new OkHttpClient();
-
-        String projectListUrl = BASE_URL + "/api2/v1/projects";
-        String auth_token="ApiToken "+token;
+        String auth_token="ApiToken "+getToken(configurationsService.getConfiguration());
 
         Request request = new Request.Builder()
                 .header("Authorization", auth_token)
-                .url(projectListUrl)
+                .url(GET_PROJECTS_LIST)
                 .build();
 
         try (Response response = client.newCall(request).execute()) {
-            ArrayList<Project> resultList = new ArrayList<>();
-            if (response.isSuccessful()){
-
-                String res = response.body().string();
-                JsonObject jsonObject = new JsonParser().parse(res).getAsJsonObject();
-                JsonArray finalRes = jsonObject.getAsJsonArray("content");
-
-                for (int i = 0; i < finalRes.size(); i++) {
-                    JsonObject tempObject = finalRes.get(i).getAsJsonObject();
-                    String name = String.valueOf(tempObject.getAsJsonPrimitive("name"));
-                    String status = String.valueOf(tempObject.getAsJsonPrimitive("status"));
-                    String sourceLang = String.valueOf(tempObject.getAsJsonPrimitive("sourceLang"));
-
-                    JsonArray targetLangsArr = tempObject.getAsJsonArray("targetLangs");
-                    StringBuilder builder = new StringBuilder();
-                    for (int j = 0; j < targetLangsArr.size(); j++) {
-                        builder.append(targetLangsArr.get(j).getAsString());
-                    }
-
-                    String targetLang = builder.toString().length() != 0 ? builder.toString() : "NA";
-
-                    Project project = new Project();
-                    project.setName(name.replace("\"",""));
-                    project.setStatus(status.replace("\"",""));
-                    project.setSourceLanguage(sourceLang.replace("\"",""));
-                    project.setTargetLanguage(targetLang);
-                    resultList.add(project);
-                }
-                return resultList;
+            if(response.isSuccessful()){
+                return response.body();
             }
-
-           // TODO throw error in case of response other than 200
-           // in case of error just return  the empty list for now
-           return new ArrayList<>();
+            throw new ProjectRuntimeException(String.valueOf(response.code()),response.message());
+        }catch (ProjectRuntimeException e){
+            throw new ProjectRuntimeException(e.getCode(),e.getMessage());
         }
     }
 

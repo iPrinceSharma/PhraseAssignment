@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="ISO-8859-1">
+    <title>TMS Account Setup</title>
+    <link rel="stylesheet"
+          href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+          integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
+          crossorigin="anonymous">
+</head>
+<body>
+<div class="container my-2" align="center">
+    <h3>TMS Account Setup </h3>
+
+    <form
+            action="#"
+            th:action="@{/saveConfiguration}"
+            th:object="${configuration}"
+            method="post">
+        <!-- Email input -->
+        <div class="form-outline mb-4">
+            <label class="form-label" for="username">Username</label>
+            <input  th:field="*{username}" type="text" id="username" class="form-control" th:value="${configuration.username}"/>
+
+        </div>
+
+        <!-- Password input -->
+        <div class="form-outline mb-4">
+            <label class="form-label" for="password">Password</label>
+            <input th:field="*{password}" type="password" id="password" class="form-control" th:value="${configuration.password}"/>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block mb-4">Save/Update</button>
+
+        <p><a href="/">Go Back</a></p>
+    </form>
+</div>
+</body>
+</html>
